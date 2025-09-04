@@ -39,15 +39,19 @@ export type ActionResponse = {
   error?: string
 }
 
-export const signin = async (formData: FormData): Promise<ActionResponse> => {
+export async function signIn(formData: FormData): Promise<ActionResponse> {
   try {
+    // Add a small delay to simulate network latency
+    await mockDelay(700)
+
+    // Extract data from form
     const data = {
       email: formData.get('email') as string,
       password: formData.get('password') as string,
     }
 
+    // Validate with Zod
     const validationResult = SignInSchema.safeParse(data)
-
     if (!validationResult.success) {
       return {
         success: false,
@@ -56,8 +60,8 @@ export const signin = async (formData: FormData): Promise<ActionResponse> => {
       }
     }
 
-    const user = await getUserByEmail()
-
+    // Find user by email
+    const user = await getUserByEmail(data.email)
     if (!user) {
       return {
         success: false,
@@ -68,8 +72,8 @@ export const signin = async (formData: FormData): Promise<ActionResponse> => {
       }
     }
 
+    // Verify password
     const isPasswordValid = await verifyPassword(data.password, user.password)
-
     if (!isPasswordValid) {
       return {
         success: false,
@@ -80,80 +84,91 @@ export const signin = async (formData: FormData): Promise<ActionResponse> => {
       }
     }
 
+    // Create session
     await createSession(user.id)
 
     return {
       success: true,
       message: 'Signed in successfully',
     }
-  } catch (e) {
-    console.error(e)
+  } catch (error) {
+    console.error('Sign in error:', error)
     return {
       success: false,
-      error: 'Something bad happended',
-      message: 'Something bad happended',
+      message: 'An error occurred while signing in',
+      error: 'Failed to sign in',
     }
   }
 }
 
-export const signup = async (formData: FormData) => {
+export async function signUp(formData: FormData): Promise<ActionResponse> {
   try {
+    // Add a small delay to simulate network latency
+    await mockDelay(700)
+
+    // Extract data from form
     const data = {
       email: formData.get('email') as string,
       password: formData.get('password') as string,
-      confirmPassword: formData.get('confirmPassword'),
+      confirmPassword: formData.get('confirmPassword') as string,
     }
 
+    // Validate with Zod
     const validationResult = SignUpSchema.safeParse(data)
-
     if (!validationResult.success) {
       return {
         success: false,
-        message: 'Validation faild',
+        message: 'Validation failed',
         errors: validationResult.error.flatten().fieldErrors,
       }
     }
 
+    // Check if user already exists
     const existingUser = await getUserByEmail(data.email)
     if (existingUser) {
       return {
         success: false,
-        message: 'Nah',
-        errors: ['Stop trying to spoof me'],
+        message: 'User with this email already exists',
+        errors: {
+          email: ['User with this email already exists'],
+        },
       }
     }
 
+    // Create new user
     const user = await createUser(data.email, data.password)
-
     if (!user) {
       return {
         success: false,
-        message: 'try again',
-        errors: ['account could not be created'],
+        message: 'Failed to create user',
+        error: 'Failed to create user',
       }
     }
 
+    // Create session for the newly registered user
     await createSession(user.id)
 
     return {
       success: true,
-      message: 'Account created',
+      message: 'Account created successfully',
     }
-  } catch (e) {
-    console.error(e)
+  } catch (error) {
+    console.error('Sign up error:', error)
     return {
       success: false,
-      message: 'something bad happened',
+      message: 'An error occurred while creating your account',
+      error: 'Failed to create account',
     }
   }
 }
 
-export const signOut = async () => {
+export async function signOut(): Promise<void> {
   try {
+    await mockDelay(300)
     await deleteSession()
-  } catch (e) {
-    console.error(e)
-    throw e
+  } catch (error) {
+    console.error('Sign out error:', error)
+    throw new Error('Failed to sign out')
   } finally {
     redirect('/signin')
   }
